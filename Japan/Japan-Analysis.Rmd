@@ -5,13 +5,64 @@ output: html_notebook
 
 ```{r}
 data <- read.csv("../Data/Video_Games_Sales_as_at_22_Dec_2016_edited.csv")
+data
+```
+```{r}
+fullData <- read.csv("../Data/Video_Games_Sales_as_at_22_Dec_2016_edited.csv")
+data <- fullData[fullData$JP_Sales >1,]
+summary(data)
+all.lm <- lm(JP_Sales~Genre+Platform+Rating+Publisher +User_Score + Critic_Score,data = data)
+score.lm <- lm(JP_Sales~User_Score + Critic_Score + User_Score*User_Count + Critic_Score*Critic_Count,data=data )
+```
+```{r}
+par(mfrow=c(2,2))
+plot(all.lm)
+```
+```{r}
+plot(score.lm)
+plot(JP_Sales~User_Score,data=data)
+abline(score.lm)
+```
+Clearly left skewed by mostly linear with a few very high leverage points.
 
-
+```{r,eval = FALSE}
+##data <- read.csv("../Data/Video_Games_Sales_as_at_22_Dec_2016_edited.csv")
+all.log.lm <- lm(log(JP_Sales+0.000000000000001)~Genre+Platform+Rating+Publisher +User_Score + Critic_Score,data = data)
+score.log.lm <- lm(log(JP_Sales+0.000000000000001)~User_Score + Critic_Score + User_Score*User_Count + Critic_Score*Critic_Count,data=data )
+plot(all.log.lm)
+plot(score.log.lm)
+summary(all.log.lm)
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+```{r}
+summary(data$JP_Sales)
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+library(MASS)
+bc.all<-boxcox(JP_Sales+0.000000000000001~Genre+Platform+Rating+Publisher +User_Score + Critic_Score,data = data)
+lambda.all <- bc.all$x[which.max(bc.all$y)]
 
+all.bc.lm <-lm((JP_Sales++0.000000000000001)^(lambda.all-1)/lambda.all~Genre+Platform+Rating+Publisher +User_Score + Critic_Score,data)
+plot(all.bc.lm)
+
+bc.score <- boxcox(JP_Sales+0.000000000000001~User_Score + Critic_Score + User_Score*User_Count + Critic_Score*Critic_Count,data=data)
+lambda.score <- bc.score$x[which.max(bc.score$y)]
+score.bc.lm <- lm((JP_Sales++0.000000000000001)^(lambda.score-1)/lambda.score ~ User_Score + Critic_Score + User_Score*User_Count + Critic_Score*Critic_Count,data=data)
+summary(all.bc.lm)
+```
+
+```{r}
+plot(score.bc.lm)
+```
+
+
+```{r}
+library(glmnet)
+(lambda.seq <- c(0,10^seq(-2, 2, by = .1)))
+y = data$JP_Sales
+x = cbind(data$Platform,data$Genre,data$Publisher,data$Critic_Score,data$User_Score,data$Developer,data$Rating)
+xy <- cbind(c,y)
+lm.lasso <- glmnet(x,y,lambda = lambda.seq,
+                   alpha = 1, #alpha=1 is the LASSO penalty
+                   family = 'gaussian')
+```
