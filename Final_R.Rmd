@@ -1,6 +1,6 @@
 ---
 title: "Project_Final"
-output: html_document
+output: pdf_document
 date: '2022-04-10'
 ---
 
@@ -11,31 +11,30 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r cars}
 library(dplyr)
-fulldata <- read.csv("Data/Video_Games_Sales_as_at_22_Dec_2016_edited.csv")
-fulldata
-pubs <- read.csv("Data/publishers.csv")
+data <- read.csv("Video_Games_Sales_as_at_22_Dec_2016_edited.csv")
+data
+pubs <- read.csv("publishers.csv")
 pubs
 ```
 
 ```{r}
 #DATA SETUP
-data <- fullData[-(fullData$Publisher == 'Unknown'),]
 data <- left_join(data,pubs)
 data$Genre <- factor(data$Genre)
 data$Rating <- factor(data$Rating)
 data$Platform <- factor(data$Platform)
 data$Year_of_Release <- as.numeric(data$Year_of_Release)
 data$NA_Sales <- data$NA_Sales*1000000
-data$EU_Sales <- data$EU_S*1000000
-
-data <-na.omit(data)
+data$EU_Sales <- data$EU_Sales*1000000
 data <- data[data$EU_Sales > 0,]
 data <- data[data$NA_Sales > 0,]
-data <- left_join(NA_data,pubs)
+data <- left_join(data,pubs)
+data <-na.omit(data)
 #3503,3543,3813,4151,
 leveragePoints <- c(1049,1143,575)
 data <- data[-leveragePoints,]
 summary(data)
+attach(data)
 ```
 ```{r}
 #NA SLR NO LOG
@@ -54,41 +53,32 @@ plot(EU.SLR)
 NA.LOG <- lm(log(NA_Sales)~Platform +Year_of_Release+ Genre+NA. + Critic_Score +  Critic_Count + User_Score+ User_Count+  Rating,data = data)
 plot(NA.LOG, col =data$Genre)
 #legend(x='topright',legend=levels(data$Genre),pch=16,col=unique(factor(data$Genre)))
-
 ```
 ```{r}
 #NA LOG
 EU.LOG <- lm(log(EU_Sales)~Platform +Year_of_Release+ Genre+EU + Critic_Score +  Critic_Count + User_Score+ User_Count+  Rating,data = data)
 plot(EU.LOG, col =data$Genre)
 #legend(x='topright',legend=levels(data$Genre),pch=16,col=unique(factor(data$Genre)))
-
 ```
 ```{r}
 #VAR SELECT
 NA.y <- log(data$NA_Sales)
 NA.step.model <- lm(log(data$NA_Sales)~data$Platform +data$Year_of_Release+ data$Genre+data$NA. + data$Critic_Score +  data$Critic_Count + data$User_Score+ data$User_Count+  data$Rating)
 NA.empty.model <- lm(NA.y~1)
-
 EU.y <- log(data$EU_Sales)
 EU.step.model <- lm(log(data$EU_Sales)~data$Platform +data$Year_of_Release+ data$Genre+data$EU + data$Critic_Score +  data$Critic_Count + data$User_Score+ data$User_Count+  data$Rating)
 EU.empty.model <- lm(EU.y~1)
-
-
 #FOR BEST SUBSET
 NA.x<-data.frame(data$Platform ,data$Year_of_Release, data$Genre,data$NA., data$Critic_Score,data$Critic_Count,data$User_Score,data$User_Count,data$Rating)
-
 NA.xy<- data.frame(NA.x,NA.y)
 colnames(NA.xy) <- cbind("Platform", "Year_of_Release","Genre","NA.", "Critic_Score","Critic_Count", "User_Score", "User_Count","Rating","NA_Sales")
-
 NA.xy$Platform <- factor(NA.xy$Platform)
 NA.xy$Genre <- factor(NA.xy$Genre)
 NA.xy$Rating <- factor(NA.xy$Rating)
 #####
 EU.x<-data.frame(data$Platform ,data$Year_of_Release, data$Genre,data$EU, data$Critic_Score,data$Critic_Count,data$User_Score,data$User_Count,data$Rating)
-
 EU.xy<- data.frame(EU.x,EU.y)
 colnames(EU.xy) <- cbind("Platform", "Year_of_Release","Genre","EU", "Critic_Score","Critic_Count", "User_Score", "User_Count","Rating","EU_Sales")
-
 EU.xy$Platform <- factor(EU.xy$Platform)
 EU.xy$Genre <- factor(EU.xy$Genre)
 EU.xy$Rating <- factor(EU.xy$Rating)
@@ -96,25 +86,25 @@ EU.xy$Rating <- factor(EU.xy$Rating)
 
 ```{r}
 #NA BACKWARDS BIC
-NA.bstep.bic <- step(NA.step.model,k=log(length(y)))
+NA.bstep.bic <- step(NA.step.model,k=log(length(NA.y)))
 summary(NA.bstep.bic)
 ```
 
 ```{r}
 #EU BACKWARDS BIC
-EU.bstep.bic <- step(EU.step.model,k=log(length(y)))
+EU.bstep.bic <- step(EU.step.model,k=log(length(EU.y)))
 summary(EU.bstep.bic)
 ```
 
 ```{r}
 #NA FORWARD BIC
-NA.fstep.bic <- step(NA.empty.model,direction = 'forward',k=log(length(y)),scope = list(lower = NA.empty.model, upper = NA.step.model))
+NA.fstep.bic <- step(NA.empty.model,direction = 'forward',k=log(length(NA.y)),scope = list(lower = NA.empty.model, upper = NA.step.model))
 summary(NA.fstep.bic)
 ```
 
 ```{r}
 #EU FORWARD BIC
-EU.fstep.bic <- step(EU.empty.model,direction = 'forward',k=log(length(y)),scope = list(lower = EU.empty.model, upper = EU.step.model))
+EU.fstep.bic <- step(EU.empty.model,direction = 'forward',k=log(length(EU.y)),scope = list(lower = EU.empty.model, upper = EU.step.model))
 summary(EU.fstep.bic)
 ```
 
@@ -183,6 +173,10 @@ plot(EU.best.bic,col=factor(data$Genre))
 legend(x='right',legend=levels(factor(data$Genre)),pch=16,col=unique(factor(data$Genre)))
 ```
 ```{r}
-#MULTICOLINEARITY
+# NA MULTICOLINEARITY
+cor(cbind(data$NA_Sales,data$Year_of_Release,data$Critic_Score,data$Critic_Count,data$User_Score,data$User_Count))
+```
+```{r}
+# EU MULTICOLINEARITY
 cor(cbind(data$EU_Sales,data$Year_of_Release,data$Critic_Score,data$Critic_Count,data$User_Score,data$User_Count))
 ```
