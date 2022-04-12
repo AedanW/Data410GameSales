@@ -1,0 +1,259 @@
+---
+title: "Project_Final"
+output: pdf_document
+date: '2022-04-10'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r cars}
+library(dplyr)
+data <- read.csv("Video_Games_Sales_as_at_22_Dec_2016_edited.csv")
+data
+pubs <- read.csv("publishers.csv")
+pubs
+```
+
+```{r}
+#DATA SETUP
+data$Genre <- factor(data$Genre)
+data$Rating <- factor(data$Rating)
+data$Platform <- factor(data$Platform)
+data$Year_of_Release <- as.numeric(data$Year_of_Release)
+data$NA_Sales <- data$NA_Sales*1000000
+data$EU_Sales <- data$EU_Sales*1000000
+data <- data[data$EU_Sales > 0,]
+data <- data[data$NA_Sales > 0,]
+data <- left_join(data,pubs)
+data <-na.omit(data)
+#3503,3543,3813,4151,
+leveragePoints <- c(1049,1143,575)
+data <- data[-leveragePoints,]
+summary(data)
+attach(data)
+```
+```{r}
+#NA SLR NO LOG
+NA.SLR <-  lm(NA_Sales~Platform +Year_of_Release+ Genre+NA. + Critic_Score +  Critic_Count + User_Score+ User_Count+  Rating, data = data)
+summary(NA.SLR)
+plot(NA.SLR)
+```
+
+```{r}
+#EU SLR NO LOG
+EU.SLR <-  lm(EU_Sales~Platform +Year_of_Release+ Genre+EU + Critic_Score +  Critic_Count + User_Score+ User_Count+  Rating,data = data)
+plot(EU.SLR)
+```
+```{r}
+#NA LOG
+NA.LOG <- lm(log(NA_Sales)~Platform +Year_of_Release+ Genre+NA. + Critic_Score +  Critic_Count + User_Score+ User_Count+  Rating,data = data)
+plot(NA.LOG, col =data$Genre)
+#legend(x='topright',legend=levels(data$Genre),pch=16,col=unique(factor(data$Genre)))
+```
+```{r}
+#EU LOG
+EU.LOG <- lm(log(EU_Sales)~Platform +Year_of_Release+ Genre+EU + Critic_Score +  Critic_Count + User_Score+ User_Count+  Rating,data = data)
+plot(EU.LOG, col =data$Genre)
+#legend(x='topright',legend=levels(data$Genre),pch=16,col=unique(factor(data$Genre)))
+```
+```{r}
+#VAR SELECT
+NA.y <- log(data$NA_Sales)
+NA.step.model <- lm(log(data$NA_Sales)~data$Platform +data$Year_of_Release+ data$Genre+data$NA. + data$Critic_Score +  data$Critic_Count + data$User_Score+ data$User_Count+  data$Rating)
+NA.empty.model <- lm(NA.y~1)
+EU.y <- log(data$EU_Sales)
+EU.step.model <- lm(log(data$EU_Sales)~data$Platform +data$Year_of_Release+ data$Genre+data$EU + data$Critic_Score +  data$Critic_Count + data$User_Score+ data$User_Count+  data$Rating)
+EU.empty.model <- lm(EU.y~1)
+#FOR BEST SUBSET
+NA.x<-data.frame(data$Platform ,data$Year_of_Release, data$Genre,data$NA., data$Critic_Score,data$Critic_Count,data$User_Score,data$User_Count,data$Rating)
+NA.xy<- data.frame(NA.x,NA.y)
+colnames(NA.xy) <- cbind("Platform", "Year_of_Release","Genre","NA.", "Critic_Score","Critic_Count", "User_Score", "User_Count","Rating","NA_Sales")
+NA.xy$Platform <- factor(NA.xy$Platform)
+NA.xy$Genre <- factor(NA.xy$Genre)
+NA.xy$Rating <- factor(NA.xy$Rating)
+#####
+EU.x<-data.frame(data$Platform ,data$Year_of_Release, data$Genre,data$EU, data$Critic_Score,data$Critic_Count,data$User_Score,data$User_Count,data$Rating)
+EU.xy<- data.frame(EU.x,EU.y)
+colnames(EU.xy) <- cbind("Platform", "Year_of_Release","Genre","EU", "Critic_Score","Critic_Count", "User_Score", "User_Count","Rating","EU_Sales")
+EU.xy$Platform <- factor(EU.xy$Platform)
+EU.xy$Genre <- factor(EU.xy$Genre)
+EU.xy$Rating <- factor(EU.xy$Rating)
+```
+
+```{r}
+#NA BACKWARDS BIC
+NA.bstep.bic <- step(NA.step.model,k=log(length(NA.y)))
+summary(NA.bstep.bic)
+```
+
+```{r}
+#EU BACKWARDS BIC
+EU.bstep.bic <- step(EU.step.model,k=log(length(EU.y)))
+summary(EU.bstep.bic)
+```
+
+```{r}
+#NA FORWARD BIC
+NA.fstep.bic <- step(NA.empty.model,direction = 'forward',k=log(length(NA.y)),scope = list(lower = NA.empty.model, upper = NA.step.model))
+summary(NA.fstep.bic)
+```
+
+```{r}
+#EU FORWARD BIC
+EU.fstep.bic <- step(EU.empty.model,direction = 'forward',k=log(length(EU.y)),scope = list(lower = EU.empty.model, upper = EU.step.model))
+summary(EU.fstep.bic)
+```
+
+```{r}
+#NA FORWARD AIC
+NA.fstep.aic <- step(NA.empty.model,direction = 'forward',scope = list(lower = NA.empty.model, upper = NA.step.model))
+summary(NA.fstep.aic)
+```
+
+```{r}
+#EU FORWARD AIC
+EU.fstep.aic <- step(EU.empty.model,direction = 'forward',scope = list(lower = EU.empty.model, upper = EU.step.model))
+summary(EU.fstep.aic)
+```
+
+```{r}
+#NA BACKWARDS AIC
+NA.bstep.aic <- step(NA.step.model)
+summary(NA.bstep.aic)
+```
+
+```{r}
+#EU BACKWARDS AIC
+EU.bstep.aic <- step(EU.step.model)
+summary(EU.bstep.aic)
+```
+
+```{r}
+# NA BEST SUBSET AIC
+library(bestglm)
+NA.bestModel.aic <- bestglm(NA.xy,IC="AIC")
+NA.best.aic <-NA.bestModel.aic$BestModel
+NA.bestModel.aic$BestModels
+summary(NA.best.aic)
+plot(NA.best.aic,col=factor(data$Genre))
+legend(x='right',legend=levels(factor(data$Genre)),pch=16,col=unique(factor(data$Genre)))
+```
+```{r}
+# EU BEST SUBSET AIC
+library(bestglm)
+EU.bestModel.aic <- bestglm(EU.xy,IC="AIC")
+EU.best.aic <-EU.bestModel.aic$BestModel
+EU.bestModel.aic$BestModels
+summary(EU.best.aic)
+plot(EU.best.aic,col=factor(data$Genre))
+legend(x='right',legend=levels(factor(data$Genre)),pch=16,col=unique(factor(data$Genre)))
+```
+```{r}
+# NA BEST SUBSET BIC
+library(bestglm)
+NA.bestModel.bic <- bestglm(NA.xy,IC="BIC")
+NA.best.bic <-NA.bestModel.bic$BestModel
+NA.bestModel.bic$BestModels
+summary(NA.bestModel.bic)
+plot(NA.best.bic,col=factor(data$Genre))
+legend(x='right',legend=levels(factor(data$Genre)),pch=16,col=unique(factor(data$Genre)))
+```
+```{r}
+# EU BEST SUBSET BIC
+library(bestglm)
+EU.bestModel.bic <- bestglm(EU.xy,IC="BIC")
+EU.best.bic <-EU.bestModel.bic$BestModel
+EU.bestModel.bic$BestModels
+summary(EU.bestModel.bic)
+plot(EU.best.bic,col=factor(data$Genre))
+legend(x='right',legend=levels(factor(data$Genre)),pch=16,col=unique(factor(data$Genre)))
+```
+```{r}
+# NA MULTICOLINEARITY
+library(car)
+cor(cbind(data$NA_Sales,data$Year_of_Release,data$Critic_Score,data$Critic_Count,data$User_Score,data$User_Count))
+```
+```{r}
+# EU MULTICOLINEARITY
+library(car)
+cor(cbind(data$EU_Sales,data$Year_of_Release,data$Critic_Score,data$Critic_Count,data$User_Score,data$User_Count))
+vif(EU.LOG)
+summary(EU.LOG)
+
+library(genridge)
+(lambda.seq <- c(0,10^seq(-2, 2, by = .1)))
+cross.validation <- cv.glmnet(EU.x, EU.y, alpha = 0,lambda = lambda.seq,type.measure = "mse")
+EU.x<-data.matrix(cbind("Year_of_Release"=data$Year_of_Release,"Critic_Score"=data$Critic_Score,"Critic_Count"=data$Critic_Count,"User_Score"=data$User_Score,"User_Count"=data$User_Count))
+EU.ridge <- ridge(EU.y, EU.x, lambda = cross.validation$lambda.min,)
+vif.ridge(EU.ridge)
+
+NEU.LOG <- lm(log(EU_Sales)~+Year_of_Release+ Genre+EU + Critic_Score +  Critic_Count + User_Score+ User_Count+  Rating,data = data)
+vif(NEU.LOG)
+summary(NEU.LOG)
+```
+
+```{r}
+# NA Other Analysis
+avg_Sales.genre <- aggregate(NA_Sales~Genre,data=data,mean)
+barplot(NA_Sales~.,data=avg_Sales.genre, col = unique(data$Genre), las=2, cex.names=.7, xlab="", ylab="")
+
+avg_Sales.plat <- aggregate(NA_Sales~Platform,data=data,mean)
+barplot(NA_Sales~.,data=avg_Sales.plat, col = unique(data$Platform), las=2, cex.names=.7, xlab="", ylab="")
+
+sumDomestic <- 0
+numDomestic <- 0
+sumForeign <- 0
+numForeign <- 0
+for(j in 1:nrow(data)){
+  if (data$NA.[j] == 1){
+    sumDomestic <- sumDomestic + data$NA_Sales[j]
+    numDomestic <- numDomestic + 1
+  } else{
+    sumForeign <- sumForeign + data$NA_Sales[j]
+    numForeign <- numForeign + 1
+  }
+}
+barplot(cbind(sumDomestic/numDomestic,sumForeign/numForeign),names.arg=c("Domestic Publisher","Foreign Publisher"),ylab = "")
+```
+
+```{r}
+# EU Other Analysis
+avg_Sales.genre <- aggregate(EU_Sales~Genre,data=data,mean)
+barplot(EU_Sales~.,data=avg_Sales.genre, col = unique(data$Genre), las=2, cex.names=.7, xlab="", ylab="")
+
+avg_Sales.plat <- aggregate(EU_Sales~Platform,data=data,mean)
+barplot(EU_Sales~.,data=avg_Sales.plat, col = unique(data$Platform), las=2, cex.names=.7, xlab="", ylab="")
+
+sumDomestic <- 0
+numDomestic <- 0
+sumForeign <- 0
+numForeign <- 0
+for(j in 1:nrow(data)){
+  if (data$EU[j] == 1){
+    sumDomestic <- sumDomestic + data$EU_Sales[j]
+    numDomestic <- numDomestic + 1
+  } else{
+    sumForeign <- sumForeign + data$EU_Sales[j]
+    numForeign <- numForeign + 1
+  }
+}
+barplot(cbind(sumDomestic/numDomestic,sumForeign/numForeign),names.arg=c("Domestic Publisher","Foreign Publisher"),ylab = "")
+
+sumDomestic <- 0
+numDomestic <- 0
+sumForeign <- 0
+numForeign <- 0
+for(j in 1:nrow(data)){
+  if (data$JP[j] == 1){
+    sumDomestic <- sumDomestic + data$JP_Sales[j]
+    numDomestic <- numDomestic + 1
+  } else{
+    sumForeign <- sumForeign + data$JP_Sales[j]
+    numForeign <- numForeign + 1
+  }
+}
+barplot(cbind(sumDomestic/numDomestic,sumForeign/numForeign),names.arg=c("Domestic Publisher","Foreign Publisher"),ylab = "")
+```
